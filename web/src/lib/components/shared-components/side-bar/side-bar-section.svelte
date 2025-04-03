@@ -1,3 +1,7 @@
+<script lang="ts" module>
+  export const sidebarBreakpoint = 850;
+</script>
+
 <script lang="ts">
   import { clickOutside } from '$lib/actions/click-outside';
   import { focusTrap } from '$lib/actions/focus-trap';
@@ -9,22 +13,20 @@
     children?: Snippet;
   }
 
-  const mdBreakpoint = 768;
-
   let { children }: Props = $props();
 
   let innerWidth: number = $state(0);
 
   const closeSidebar = (width: number) => {
-    isSidebarOpen.value = width >= mdBreakpoint;
+    isSidebarOpen.value = width >= sidebarBreakpoint;
   };
 
   $effect(() => {
     closeSidebar(innerWidth);
   });
 
-  const isHidden = $derived(!isSidebarOpen.value && innerWidth < mdBreakpoint);
-  const isExpanded = $derived(isSidebarOpen.value && innerWidth < mdBreakpoint);
+  const isHidden = $derived(!isSidebarOpen.value && innerWidth < sidebarBreakpoint);
+  const isExpanded = $derived(isSidebarOpen.value && innerWidth < sidebarBreakpoint);
 
   const handleClickOutside = () => {
     if (!isSidebarOpen.value) {

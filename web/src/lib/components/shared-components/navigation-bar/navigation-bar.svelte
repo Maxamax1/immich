@@ -62,7 +62,7 @@
 >
   <SkipLink text={$t('skip_to_content')} />
   <div
-    class="grid h-full grid-cols-[theme(spacing.32)_auto] items-center border-b bg-immich-bg py-2 dark:border-b-immich-dark-gray dark:bg-immich-dark-bg md:grid-cols-[theme(spacing.64)_auto]"
+    class="grid h-full grid-cols-[theme(spacing.32)_auto] items-center border-b bg-immich-bg py-2 dark:border-b-immich-dark-gray dark:bg-immich-dark-bg sidebar:grid-cols-[theme(spacing.64)_auto]"
   >
     <div class="flex flex-row gap-1 mx-4 items-center">
       <div>
@@ -83,11 +83,11 @@
               event.stopPropagation();
             }
           }}
-          class="md:hidden"
+          class="sidebar:hidden"
         />
       </div>
       <a data-sveltekit-preload-data="hover" href={AppRoute.PHOTOS}>
-        <ImmichLogo class="max-md:h-[48px] h-[50px]" noText={mobileDevice.maxMd} />
+        <ImmichLogo class="max-md:h-[48px] h-[50px]" noText={!mobileDevice.sidebar} />
       </a>
     </div>
     <div class="flex justify-between gap-4 lg:gap-8 pr-6">
