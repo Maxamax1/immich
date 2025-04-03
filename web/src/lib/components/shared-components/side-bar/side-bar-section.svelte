@@ -1,13 +1,10 @@
-<script lang="ts" module>
-  export const sidebarBreakpoint = 850;
-</script>
-
 <script lang="ts">
   import { clickOutside } from '$lib/actions/click-outside';
   import { focusTrap } from '$lib/actions/focus-trap';
   import { menuButtonId } from '$lib/components/shared-components/navigation-bar/navigation-bar.svelte';
+  import { mobileDevice } from '$lib/stores/mobile-device.svelte';
   import { isSidebarOpen } from '$lib/stores/side-bar.svelte';
-  import { type Snippet } from 'svelte';
+  import { onMount, type Snippet } from 'svelte';
 
   interface Props {
     children?: Snippet;
@@ -15,35 +12,33 @@
 
   let { children }: Props = $props();
 
-  let innerWidth: number = $state(0);
-
-  const closeSidebar = (width: number) => {
-    isSidebarOpen.value = width >= sidebarBreakpoint;
-  };
-
-  $effect(() => {
-    closeSidebar(innerWidth);
+  onMount(() => {
+    closeSidebar();
   });
 
-  const isHidden = $derived(!isSidebarOpen.value && innerWidth < sidebarBreakpoint);
-  const isExpanded = $derived(isSidebarOpen.value && innerWidth < sidebarBreakpoint);
+  const closeSidebar = () => {
+    isSidebarOpen.value = mobileDevice.isFullSidebar;
+  };
+
+  const isHidden = $derived(!isSidebarOpen.value && !mobileDevice.isFullSidebar);
+  const isExpanded = $derived(isSidebarOpen.value && !mobileDevice.isFullSidebar);
 
   const handleClickOutside = () => {
     if (!isSidebarOpen.value) {
       return;
     }
-    closeSidebar(innerWidth);
+    closeSidebar();
     if (isHidden) {
       document.querySelector<HTMLButtonElement>(`#${menuButtonId}`)?.focus();
     }
   };
 </script>
 
-<svelte:window bind:innerWidth />
+<svelte:window onresize={closeSidebar} />
 <section
   id="sidebar"
   tabindex="-1"
-  class="immich-scrollbar relative z-10 w-0 overflow-y-auto overflow-x-hidden bg-immich-bg pt-8 transition-all duration-200 dark:bg-immich-dark-bg"
+  class="immich-scrollbar relative z-10 w-0 sidebar:w-[16rem] overflow-y-auto overflow-x-hidden bg-immich-bg pt-8 transition-all duration-200 dark:bg-immich-dark-bg"
   class:shadow-2xl={isExpanded}
   class:dark:border-r-immich-dark-gray={isExpanded}
   class:border-r={isExpanded}
