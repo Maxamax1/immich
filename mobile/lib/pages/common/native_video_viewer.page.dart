@@ -29,6 +29,7 @@ class NativeVideoViewerPage extends HookConsumerWidget {
   final bool showControls;
   final int playbackDelayFactor;
   final Widget image;
+  final bool isLocked; // Add isLocked parameter
 
   const NativeVideoViewerPage({
     super.key,
@@ -36,6 +37,7 @@ class NativeVideoViewerPage extends HookConsumerWidget {
     required this.image,
     this.showControls = true,
     this.playbackDelayFactor = 1,
+    this.isLocked = false, // Default to false
   });
 
   @override
@@ -275,9 +277,21 @@ class NativeVideoViewerPage extends HookConsumerWidget {
     }
 
     void initController(NativeVideoPlayerController nc) async {
-      if (controller.value != null || !context.mounted) {
+      // Check if controller is already initialized for this widget instance
+      if (controller.value != null) {
+        log.fine(
+            "Controller already initialized for asset ${asset.id}. Skipping re-initialization.");
+        // Potentially ensure listeners are still attached if needed, though they should persist with the controller instance.
         return;
       }
+
+      if (!context.mounted) {
+        log.warning(
+            "initController called but context is not mounted for asset ${asset.id}");
+        return;
+      }
+
+      log.fine("Initializing new controller for asset ${asset.id}");
       ref.read(videoPlayerControlsProvider.notifier).reset();
       ref.read(videoPlaybackValueProvider.notifier).reset();
 
@@ -390,22 +404,24 @@ class NativeVideoViewerPage extends HookConsumerWidget {
       children: [
         // This remains under the video to avoid flickering
         // For motion videos, this is the image portion of the asset
-        Center(key: ValueKey(asset.id), child: image),
+        Center(child: image), // Remove key from placeholder
         if (aspectRatio.value != null)
-          Visibility.maintain(
-            key: ValueKey(asset),
-            visible: isVisible.value,
-            child: Center(
-              key: ValueKey(asset),
-              child: AspectRatio(
-                key: ValueKey(asset),
-                aspectRatio: aspectRatio.value!,
-                child: isCurrent
-                    ? NativeVideoPlayerView(
-                        key: ValueKey(asset),
-                        onViewReady: initController,
-                      )
-                    : null,
+          // Wrap only the video player view area with IgnorePointer when locked
+          IgnorePointer(
+            ignoring: isLocked,
+            child: Visibility.maintain(
+              visible: isVisible.value,
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: aspectRatio.value!,
+                  child: isCurrent
+                      ? NativeVideoPlayerView(
+                          key:
+                              ValueKey(asset.id), // Use asset.id for stable key
+                          onViewReady: initController,
+                        )
+                      : null,
+                ),
               ),
             ),
           ),

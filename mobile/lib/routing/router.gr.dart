@@ -844,6 +844,7 @@ class GalleryViewerRoute extends PageRouteInfo<GalleryViewerRouteArgs> {
     int initialIndex = 0,
     int heroOffset = 0,
     bool showStack = false,
+    bool startLocked = false,
     List<PageRouteInfo>? children,
   }) : super(
           GalleryViewerRoute.name,
@@ -853,6 +854,7 @@ class GalleryViewerRoute extends PageRouteInfo<GalleryViewerRouteArgs> {
             initialIndex: initialIndex,
             heroOffset: heroOffset,
             showStack: showStack,
+            startLocked: startLocked,
           ),
           initialChildren: children,
         );
@@ -869,6 +871,7 @@ class GalleryViewerRoute extends PageRouteInfo<GalleryViewerRouteArgs> {
         initialIndex: args.initialIndex,
         heroOffset: args.heroOffset,
         showStack: args.showStack,
+        startLocked: args.startLocked,
       );
     },
   );
@@ -881,6 +884,7 @@ class GalleryViewerRouteArgs {
     this.initialIndex = 0,
     this.heroOffset = 0,
     this.showStack = false,
+    this.startLocked = false,
   });
 
   final Key? key;
@@ -893,9 +897,11 @@ class GalleryViewerRouteArgs {
 
   final bool showStack;
 
+  final bool startLocked;
+
   @override
   String toString() {
-    return 'GalleryViewerRouteArgs{key: $key, renderList: $renderList, initialIndex: $initialIndex, heroOffset: $heroOffset, showStack: $showStack}';
+    return 'GalleryViewerRouteArgs{key: $key, renderList: $renderList, initialIndex: $initialIndex, heroOffset: $heroOffset, showStack: $showStack, startLocked: $startLocked}';
   }
 }
 

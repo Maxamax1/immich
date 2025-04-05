@@ -26,6 +26,7 @@ import 'package:immich_mobile/widgets/common/immich_loading_indicator.dart';
 import 'package:immich_mobile/widgets/common/immich_toast.dart';
 import 'package:immich_mobile/utils/immich_loading_overlay.dart';
 import 'package:immich_mobile/utils/selection_handlers.dart';
+import 'package:immich_mobile/widgets/asset_grid/selected_assets_render_list.dart'; // Import the new RenderList
 
 class MultiselectGrid extends HookConsumerWidget {
   const MultiselectGrid({
@@ -392,6 +393,23 @@ class MultiselectGrid extends HookConsumerWidget {
       }
     }
 
+    // Handler for the "View Locked" action
+    void onViewLocked() {
+      if (selection.value.isEmpty) {
+        return;
+      }
+      // Create a RenderList containing only the selected assets
+      final selectedRenderList =
+          SelectedAssetsRenderList(selection.value.toList());
+      selectionEnabledHook.value = false; // Disable multi-select mode
+      context.pushRoute(
+        GalleryViewerRoute(
+          renderList: selectedRenderList,
+          startLocked: true, // Start the viewer in locked mode
+        ),
+      );
+    }
+
     Future<T> Function() wrapLongRunningFun<T>(
       Future<T> Function() fun, {
       bool showOverlay = true,
@@ -454,6 +472,7 @@ class MultiselectGrid extends HookConsumerWidget {
               onStack: stackEnabled ? onStack : null,
               onEditTime: editEnabled ? onEditTime : null,
               onEditLocation: editEnabled ? onEditLocation : null,
+              onViewLocked: onViewLocked, // Pass the new handler
               unfavorite: unfavorite,
               unarchive: unarchive,
               onRemoveFromAlbum: onRemoveFromAlbum != null

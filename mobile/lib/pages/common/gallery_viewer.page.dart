@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:auto_route/auto_route.dart';
+import 'package:easy_localization/easy_localization.dart'; // Import for translations
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart' hide Store;
@@ -12,8 +13,8 @@ import 'package:immich_mobile/entities/asset.entity.dart';
 import 'package:immich_mobile/extensions/build_context_extensions.dart';
 import 'package:immich_mobile/extensions/scroll_extensions.dart';
 import 'package:immich_mobile/pages/common/download_panel.dart';
-import 'package:immich_mobile/pages/common/native_video_viewer.page.dart';
 import 'package:immich_mobile/pages/common/gallery_stacked_children.dart';
+import 'package:immich_mobile/pages/common/native_video_viewer.page.dart';
 import 'package:immich_mobile/providers/app_settings.provider.dart';
 import 'package:immich_mobile/providers/asset_viewer/asset_stack.provider.dart';
 import 'package:immich_mobile/providers/asset_viewer/current_asset.provider.dart';
@@ -23,6 +24,7 @@ import 'package:immich_mobile/providers/asset_viewer/video_player_value_provider
 import 'package:immich_mobile/providers/haptic_feedback.provider.dart';
 import 'package:immich_mobile/services/app_settings.service.dart';
 import 'package:immich_mobile/widgets/asset_grid/asset_grid_data_structure.dart';
+import 'package:immich_mobile/widgets/asset_grid/selected_assets_render_list.dart'; // Import SelectedAssetsRenderList
 import 'package:immich_mobile/widgets/asset_viewer/advanced_bottom_sheet.dart';
 import 'package:immich_mobile/widgets/asset_viewer/bottom_gallery_bar.dart';
 import 'package:immich_mobile/widgets/asset_viewer/detail_panel/detail_panel.dart';
@@ -33,15 +35,68 @@ import 'package:immich_mobile/widgets/photo_view/photo_view_gallery.dart';
 import 'package:immich_mobile/widgets/photo_view/src/photo_view_computed_scale.dart';
 import 'package:immich_mobile/widgets/photo_view/src/photo_view_scale_state.dart';
 import 'package:immich_mobile/widgets/photo_view/src/utils/photo_view_hero_attributes.dart';
+import 'package:local_auth/local_auth.dart'; // Import local_auth
+import 'package:logging/logging.dart'; // Import logging
+
+final log = Logger('GalleryViewerPage'); // Logger instance
+
+// Helper widget definition (Top Level)
+class _ConditionalBottomBar extends StatelessWidget {
+  const _ConditionalBottomBar({
+    required this.renderList,
+    required this.totalAssets,
+    required this.controller,
+    required this.showStack,
+    required this.stackIndex,
+    required this.assetIndex,
+    required this.isLocked,
+    required this.showControls,
+  });
+
+  final RenderList renderList;
+  final ValueNotifier<int> totalAssets;
+  final PageController controller;
+  final bool showStack;
+  final ValueNotifier<int> stackIndex;
+  final ValueNotifier<int> assetIndex;
+  final bool isLocked;
+  final bool showControls;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelectionMode = renderList is SelectedAssetsRenderList;
+    final bool shouldBeVisible = isSelectionMode || showControls;
+    // Ignore interaction ONLY if locked AND NOT in selection mode.
+    final bool ignoreInteraction = isLocked && !isSelectionMode;
+
+    return IgnorePointer(
+      ignoring: ignoreInteraction,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: shouldBeVisible ? 1.0 : 0.0,
+        child: BottomGalleryBar(
+          renderList: renderList,
+          totalAssets: totalAssets,
+          controller: controller,
+          showStack: showStack,
+          stackIndex: stackIndex,
+          assetIndex: assetIndex,
+          isLocked: isLocked,
+          isSelectionMode: isSelectionMode,
+        ),
+      ),
+    );
+  }
+}
 
 @RoutePage()
 // ignore: must_be_immutable
-/// Expects [currentAssetProvider] to be set before navigating to this page
 class GalleryViewerPage extends HookConsumerWidget {
   final int initialIndex;
   final int heroOffset;
   final bool showStack;
   final RenderList renderList;
+  final bool startLocked;
 
   GalleryViewerPage({
     super.key,
@@ -49,77 +104,96 @@ class GalleryViewerPage extends HookConsumerWidget {
     this.initialIndex = 0,
     this.heroOffset = 0,
     this.showStack = false,
+    this.startLocked = false,
   }) : controller = PageController(initialPage: initialIndex);
 
   final PageController controller;
 
+  @pragma('vm:prefer-inline')
+  PhotoViewHeroAttributes _getHeroAttributes(Asset asset) {
+    return PhotoViewHeroAttributes(
+        tag: asset.isInDb
+            ? asset.id + heroOffset
+            : '${asset.remoteId}-$heroOffset',
+        transitionOnUserGestures: true);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final localAuth = useMemoized(() => LocalAuthentication());
     final totalAssets = useState(renderList.totalAssets);
     final isZoomed = useState(false);
+    final isLocked = useState(startLocked);
     final stackIndex = useState(0);
     final localPosition = useRef<Offset?>(null);
     final currentIndex = useValueNotifier(initialIndex);
     final loadAsset = renderList.loadAsset;
     final isPlayingMotionVideo = ref.watch(isPlayingMotionVideoProvider);
+    final isSelectionMode = renderList is SelectedAssetsRenderList;
+    final currentAsset = ref.watch(currentAssetProvider);
 
+    // --- Function Definitions ---
     Future<void> precacheNextImage(int index) async {
-      if (!context.mounted) {
-        return;
-      }
-
-      void onError(Object exception, StackTrace? stackTrace) {
-        // swallow error silently
-        log.severe('Error precaching next image: $exception, $stackTrace');
+      if (!context.mounted) return;
+      void onError(Object e, StackTrace? s) {
+        log.severe('Error precaching image: $e, $s');
       }
 
       try {
         if (index < totalAssets.value && index >= 0) {
           final asset = loadAsset(index);
           await precacheImage(
-            ImmichImage.imageProvider(
-              asset: asset,
-              width: context.width,
-              height: context.height,
-            ),
-            context,
-            onError: onError,
-          );
+              ImmichImage.imageProvider(
+                  asset: asset, width: context.width, height: context.height),
+              context,
+              onError: onError);
         }
       } catch (e) {
-        // swallow error silently
-        log.severe('Error precaching next image: $e');
+        log.severe('Error precaching image: $e');
         context.maybePop();
       }
     }
 
-    useEffect(
-      () {
-        if (ref.read(showControlsProvider)) {
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    Future<void> toggleLockMode() async {
+      final showControlsNotifier = ref.read(showControlsProvider.notifier);
+      if (!isLocked.value) {
+        isLocked.value = true;
+        showControlsNotifier.show = false;
+      } else {
+        final isBiometricSupported = await localAuth.isDeviceSupported();
+        final canCheckBiometrics = await localAuth.canCheckBiometrics;
+        if (isBiometricSupported && canCheckBiometrics) {
+          try {
+            final bool didAuthenticate = await localAuth.authenticate(
+                localizedReason: 'gallery_viewer_authenticate_to_unlock'.tr(),
+                options: const AuthenticationOptions(
+                    biometricOnly: true, stickyAuth: true));
+            if (didAuthenticate) {
+              isLocked.value = false;
+              showControlsNotifier.show = true;
+            }
+          } on PlatformException catch (e) {
+            log.severe("Biometric auth error: $e");
+            var errorMsg = "Biometric authentication error: ${e.code}";
+            if (e.code == 'NotEnrolled') {
+              errorMsg = "Biometrics not enrolled on this device.";
+            } else if (e.code == 'NotAvailable') {
+              errorMsg = "Biometrics not available on this device.";
+            }
+            log.warning("Cannot unlock via biometrics: $errorMsg");
+          }
         } else {
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+          log.warning("Biometrics not supported/available.");
         }
-
-        // Delay this a bit so we can finish loading the page
-        Timer(const Duration(milliseconds: 400), () {
-          precacheNextImage(currentIndex.value + 1);
-        });
-
-        return null;
-      },
-      const [],
-    );
+      }
+    }
 
     void showInfo() {
       final asset = ref.read(currentAssetProvider);
-      if (asset == null) {
-        return;
-      }
+      if (asset == null) return;
       showModalBottomSheet(
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(15.0)),
-        ),
+            borderRadius: BorderRadius.all(Radius.circular(15.0))),
         barrierColor: Colors.transparent,
         isScrollControlled: true,
         showDragHandle: true,
@@ -134,20 +208,13 @@ class GalleryViewerPage extends HookConsumerWidget {
             expand: false,
             builder: (context, scrollController) {
               return Padding(
-                padding: EdgeInsets.only(
-                  bottom: context.viewInsets.bottom,
-                ),
+                padding: EdgeInsets.only(bottom: context.viewInsets.bottom),
                 child: ref.watch(appSettingsServiceProvider).getSetting<bool>(
-                          AppSettingsEnum.advancedTroubleshooting,
-                        )
+                        AppSettingsEnum.advancedTroubleshooting)
                     ? AdvancedBottomSheet(
-                        assetDetail: asset,
-                        scrollController: scrollController,
-                      )
+                        assetDetail: asset, scrollController: scrollController)
                     : DetailPanel(
-                        asset: asset,
-                        scrollController: scrollController,
-                      ),
+                        asset: asset, scrollController: scrollController),
               );
             },
           );
@@ -159,23 +226,10 @@ class GalleryViewerPage extends HookConsumerWidget {
       const int sensitivity = 15;
       const int dxThreshold = 50;
       const double ratioThreshold = 3.0;
-
-      if (isZoomed.value) {
-        return;
-      }
-
-      // Guard [localPosition] null
-      if (localPosition.value == null) {
-        return;
-      }
-
-      // Check for delta from initial down point
+      if (isLocked.value || isZoomed.value) return;
+      if (localPosition.value == null) return;
       final d = details.localPosition - localPosition.value!;
-      // If the magnitude of the dx swipe is large, we probably didn't mean to go down
-      if (d.dx.abs() > dxThreshold) {
-        return;
-      }
-
+      if (d.dx.abs() > dxThreshold) return;
       final ratio = d.dy / max(d.dx.abs(), 1);
       if (d.dy > sensitivity && ratio > ratioThreshold) {
         context.maybePop();
@@ -183,18 +237,6 @@ class GalleryViewerPage extends HookConsumerWidget {
         showInfo();
       }
     }
-
-    ref.listen(showControlsProvider, (_, show) {
-      if (show || Platform.isIOS) {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-        return;
-      }
-
-      // This prevents the bottom bar from "dropping" while the controls are being hidden
-      Timer(const Duration(milliseconds: 100), () {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-      });
-    });
 
     PhotoViewGalleryPageOptions buildImage(BuildContext context, Asset asset) {
       return PhotoViewGalleryPageOptions(
@@ -205,7 +247,9 @@ class GalleryViewerPage extends HookConsumerWidget {
           handleSwipeUpDown(details);
         },
         onTapDown: (_, __, ___) {
-          ref.read(showControlsProvider.notifier).toggle();
+          if (!isLocked.value) {
+            ref.read(showControlsProvider.notifier).toggle();
+          }
         },
         onLongPressStart: asset.isMotionPhoto
             ? (_, __, ___) {
@@ -217,39 +261,46 @@ class GalleryViewerPage extends HookConsumerWidget {
         filterQuality: FilterQuality.high,
         tightMode: true,
         minScale: PhotoViewComputedScale.contained,
-        errorBuilder: (context, error, stackTrace) => ImmichImage(
-          asset,
-          fit: BoxFit.contain,
-        ),
+        errorBuilder: (context, error, stackTrace) =>
+            ImmichImage(asset, fit: BoxFit.contain),
       );
     }
 
     PhotoViewGalleryPageOptions buildVideo(BuildContext context, Asset asset) {
-      // This key is to prevent the video player from being re-initialized during the hero animation
-      final key = GlobalKey();
+      // Revert: Remove useMemoized call from buildVideo
+      // Directly create and return the PageOptions
       return PhotoViewGalleryPageOptions.customChild(
         onDragStart: (_, details, __) =>
             localPosition.value = details.localPosition,
         onDragUpdate: (_, details, __) => handleSwipeUpDown(details),
+        onTapDown: (_, __, ___) {
+          // Keep tap handler for unlocked videos
+          if (!isLocked.value) {
+            ref.read(showControlsProvider.notifier).toggle();
+          }
+        },
         heroAttributes: _getHeroAttributes(asset),
         filterQuality: FilterQuality.high,
-        initialScale: 1.0,
-        maxScale: 1.0,
-        minScale: 1.0,
+        initialScale: PhotoViewComputedScale.contained,
+        minScale: PhotoViewComputedScale.contained * 0.8,
+        maxScale: PhotoViewComputedScale.covered * 2.5,
         basePosition: Alignment.center,
+        // Remove IgnorePointer from here, it's now handled inside NativeVideoViewerPage
         child: SizedBox(
+          // Keep SizedBox wrapper if needed for layout
           width: context.width,
           height: context.height,
           child: NativeVideoViewerPage(
-            key: key,
+            // Use stable key for the viewer page itself if needed,
+            // relying on the inner NativeVideoPlayerView's key primarily.
+            key: ValueKey("native_viewer_${asset.id}"),
             asset: asset,
+            isLocked: isLocked.value, // Pass the locked state down
             image: Image(
-              key: ValueKey(asset),
+              key: ValueKey(
+                  "placeholder_${asset.id}"), // Use stable asset ID for image key
               image: ImmichImage.imageProvider(
-                asset: asset,
-                width: context.width,
-                height: context.height,
-              ),
+                  asset: asset, width: context.width, height: context.height),
               fit: BoxFit.contain,
               height: context.height,
               width: context.width,
@@ -261,8 +312,7 @@ class GalleryViewerPage extends HookConsumerWidget {
     }
 
     PhotoViewGalleryPageOptions buildAsset(BuildContext context, int index) {
-      var newAsset = loadAsset(index);
-
+      var newAsset = loadAsset(index); // Revert variable name
       final stackId = newAsset.stackId;
       if (stackId != null && currentIndex.value == index) {
         final stackElements =
@@ -271,130 +321,158 @@ class GalleryViewerPage extends HookConsumerWidget {
           newAsset = stackElements.elementAt(stackIndex.value);
         }
       }
-
+      // Directly call buildImage or buildVideo without memoizing the PageOptions here
       if (newAsset.isImage && !isPlayingMotionVideo) {
         return buildImage(context, newAsset);
       }
       return buildVideo(context, newAsset);
     }
+    // --- End of Function Definitions ---
+
+    useEffect(() {
+      final show = ref.read(showControlsProvider);
+      if (isLocked.value) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+      } else if (show || Platform.isIOS) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      } else {
+        Timer(const Duration(milliseconds: 100), () {
+          if (!ref.read(showControlsProvider) && !isLocked.value) {
+            SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+          }
+        });
+      }
+      return null;
+    }, [isLocked.value, ref.watch(showControlsProvider)]);
+
+    useEffect(() {
+      Timer(const Duration(milliseconds: 400), () {
+        precacheNextImage(currentIndex.value + 1);
+      });
+      return null;
+    }, []);
+
+    final bool showMainControls =
+        !isLocked.value && ref.watch(showControlsProvider);
+
+    Widget buildMainContent() {
+      // Always use PhotoViewGallery.builder
+      return PhotoViewGallery.builder(
+        key: const ValueKey('gallery'),
+        scaleStateChangedCallback: (state) {
+          // Use currentAsset directly if available, otherwise load
+          final asset = currentAsset ?? loadAsset(currentIndex.value);
+          if (asset.isImage && !ref.read(isPlayingMotionVideoProvider)) {
+            isZoomed.value = state != PhotoViewScaleState.initial;
+            if (!isLocked.value) {
+              ref.read(showControlsProvider.notifier).show = !isZoomed.value;
+            }
+          }
+        },
+        gaplessPlayback: true,
+        allowImplicitScrolling:
+            true, // Consider if needed with FastScrollPhysics
+        loadingBuilder: (context, event, index) {
+          final asset = loadAsset(index);
+          return ClipRect(
+              child: Stack(fit: StackFit.expand, children: [
+            BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10)),
+            ImmichThumbnail(
+                key: ValueKey(asset), asset: asset, fit: BoxFit.contain)
+          ]));
+        },
+        pageController: controller,
+        // Disable horizontal scrolling if zoomed OR (locked AND not in selection mode)
+        scrollPhysics: isZoomed.value || (isLocked.value && !isSelectionMode)
+            ? const NeverScrollableScrollPhysics()
+            : (Platform.isIOS
+                ? const FastScrollPhysics()
+                : const FastClampingScrollPhysics()),
+        itemCount: totalAssets.value,
+        scrollDirection: Axis.horizontal,
+        onPageChanged: (value) {
+          final next = currentIndex.value < value ? value + 1 : value - 1;
+          ref.read(hapticFeedbackProvider.notifier).selectionClick();
+          final newAsset = loadAsset(value);
+          currentIndex.value = value;
+          stackIndex.value = 0;
+          ref.read(currentAssetProvider.notifier).set(newAsset);
+          if (newAsset.isVideo || newAsset.isMotionPhoto) {
+            ref.read(videoPlaybackValueProvider.notifier).reset();
+          }
+          Timer(const Duration(milliseconds: 400), () {
+            precacheNextImage(next);
+          });
+        },
+        builder: buildAsset,
+      );
+    }
 
     return PopScope(
-      // Change immersive mode back to normal "edgeToEdge" mode
-      onPopInvokedWithResult: (didPop, _) =>
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge),
+      canPop: !isLocked.value,
+      onPopInvoked: (didPop) async {
+        if (didPop) {
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        } else if (isLocked.value) {
+          await toggleLockMode();
+        }
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            PhotoViewGallery.builder(
-              key: const ValueKey('gallery'),
-              scaleStateChangedCallback: (state) {
-                final asset = ref.read(currentAssetProvider);
-                if (asset == null) {
-                  return;
-                }
-
-                if (asset.isImage && !ref.read(isPlayingMotionVideoProvider)) {
-                  isZoomed.value = state != PhotoViewScaleState.initial;
-                  ref.read(showControlsProvider.notifier).show =
-                      !isZoomed.value;
-                }
-              },
-              gaplessPlayback: true,
-              loadingBuilder: (context, event, index) {
-                final asset = loadAsset(index);
-                return ClipRect(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      BackdropFilter(
-                        filter: ui.ImageFilter.blur(
-                          sigmaX: 10,
-                          sigmaY: 10,
-                        ),
-                      ),
-                      ImmichThumbnail(
-                        key: ValueKey(asset),
-                        asset: asset,
-                        fit: BoxFit.contain,
-                      ),
-                    ],
-                  ),
-                );
-              },
-              pageController: controller,
-              scrollPhysics: isZoomed.value
-                  ? const NeverScrollableScrollPhysics() // Don't allow paging while scrolled in
-                  : (Platform.isIOS
-                      ? const FastScrollPhysics() // Use bouncing physics for iOS
-                      : const FastClampingScrollPhysics() // Use heavy physics for Android
-                  ),
-              itemCount: totalAssets.value,
-              scrollDirection: Axis.horizontal,
-              onPageChanged: (value) {
-                final next = currentIndex.value < value ? value + 1 : value - 1;
-
-                ref.read(hapticFeedbackProvider.notifier).selectionClick();
-
-                final newAsset = loadAsset(value);
-
-                currentIndex.value = value;
-                stackIndex.value = 0;
-
-                ref.read(currentAssetProvider.notifier).set(newAsset);
-                if (newAsset.isVideo || newAsset.isMotionPhoto) {
-                  ref.read(videoPlaybackValueProvider.notifier).reset();
-                }
-
-                // Wait for page change animation to finish, then precache the next image
-                Timer(const Duration(milliseconds: 400), () {
-                  precacheNextImage(next);
-                });
-              },
-              builder: buildAsset,
-            ),
+            buildMainContent(), // Use the conditional builder
+            // Top controls (AppBar) - Conditionally visible
             Positioned(
+              // Positioned is now the direct child of Stack
               top: 0,
               left: 0,
               right: 0,
-              child: GalleryAppBar(
-                key: const ValueKey('app-bar'),
-                showInfo: showInfo,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 150),
+                opacity: showMainControls ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: !showMainControls,
+                  child: GalleryAppBar(
+                      key: const ValueKey('app-bar'),
+                      showInfo: showInfo,
+                      isLocked: isLocked.value,
+                      onToggleLock: toggleLockMode),
+                ),
               ),
             ),
+            // Bottom controls (Helper handles visibility/interactivity)
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
-              child: Column(
-                children: [
-                  GalleryStackedChildren(stackIndex),
-                  BottomGalleryBar(
-                    key: const ValueKey('bottom-bar'),
-                    renderList: renderList,
-                    totalAssets: totalAssets,
-                    controller: controller,
-                    showStack: showStack,
-                    stackIndex: stackIndex,
-                    assetIndex: currentIndex,
-                  ),
-                ],
+              child: _ConditionalBottomBar(
+                renderList: renderList,
+                totalAssets: totalAssets,
+                controller: controller,
+                showStack: showStack,
+                stackIndex: stackIndex,
+                assetIndex: currentIndex,
+                isLocked: isLocked.value,
+                showControls: ref.watch(showControlsProvider),
               ),
             ),
+            // Always visible Lock icon when in locked state
+            if (isLocked.value)
+              Positioned(
+                top: context.padding.top + 10,
+                right: 10,
+                child: IconButton(
+                  icon: Icon(Icons.lock_outline,
+                      color: Colors.white.withOpacity(0.8), size: 24),
+                  tooltip: 'gallery_viewer_authenticate_to_unlock'.tr(),
+                  onPressed: toggleLockMode,
+                ),
+              ),
             const DownloadPanel(),
           ],
         ),
       ),
-    );
-  }
-
-  @pragma('vm:prefer-inline')
-  PhotoViewHeroAttributes _getHeroAttributes(Asset asset) {
-    return PhotoViewHeroAttributes(
-      tag: asset.isInDb
-          ? asset.id + heroOffset
-          : '${asset.remoteId}-$heroOffset',
-      transitionOnUserGestures: true,
     );
   }
 }

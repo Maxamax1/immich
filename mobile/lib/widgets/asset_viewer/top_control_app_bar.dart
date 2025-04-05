@@ -22,6 +22,9 @@ class TopControlAppBar extends HookConsumerWidget {
     required this.isOwner,
     required this.onActivitiesPressed,
     required this.isPartner,
+    // Added lock state and callback
+    required this.isLocked,
+    required this.onToggleLock,
   });
 
   final Asset asset;
@@ -35,6 +38,9 @@ class TopControlAppBar extends HookConsumerWidget {
   final Function(Asset) onFavorite;
   final bool isOwner;
   final bool isPartner;
+  // Added lock state and callback
+  final bool isLocked;
+  final VoidCallback onToggleLock;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -166,6 +172,17 @@ class TopControlAppBar extends HookConsumerWidget {
       );
     }
 
+    // Define buildLockButton function here, before it's used
+    Widget buildLockButton() {
+      return IconButton(
+        onPressed: onToggleLock,
+        icon: Icon(
+          isLocked ? Icons.lock_outline : Icons.lock_open_outlined,
+          color: Colors.grey[200],
+        ),
+      );
+    }
+
     return AppBar(
       foregroundColor: Colors.grey[100],
       backgroundColor: Colors.transparent,
@@ -173,6 +190,8 @@ class TopControlAppBar extends HookConsumerWidget {
       actionsIconTheme: const IconThemeData(size: iconSize),
       shape: const Border(),
       actions: [
+        // Add the lock button here
+        buildLockButton(),
         if (asset.isRemote && isOwner) buildFavoriteButton(a),
         if (isOwner && ref.read(tabProvider.notifier).state != TabEnum.home)
           buildLocateButton(),

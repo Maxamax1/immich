@@ -24,8 +24,15 @@ import 'package:immich_mobile/widgets/common/immich_toast.dart';
 
 class GalleryAppBar extends ConsumerWidget {
   final void Function() showInfo;
+  final bool isLocked; // Added
+  final VoidCallback onToggleLock; // Added
 
-  const GalleryAppBar({super.key, required this.showInfo});
+  const GalleryAppBar({
+    super.key,
+    required this.showInfo,
+    required this.isLocked, // Added
+    required this.onToggleLock, // Added
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -128,6 +135,9 @@ class GalleryAppBar extends ConsumerWidget {
             onDownloadPressed: asset.isLocal ? null : handleDownloadAsset,
             onAddToAlbumPressed: () => addToAlbum(asset),
             onActivitiesPressed: handleActivities,
+            // Pass down lock state and toggle function
+            isLocked: isLocked,
+            onToggleLock: onToggleLock,
           ),
         ),
       ),

@@ -1,11 +1,11 @@
 package app.alextran.immich
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity // Changed import
 import io.flutter.embedding.engine.FlutterEngine
 import android.os.Bundle
 import android.content.Intent
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() { // Changed parent class
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
