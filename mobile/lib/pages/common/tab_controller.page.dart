@@ -6,6 +6,7 @@ import 'package:immich_mobile/extensions/build_context_extensions.dart';
 import 'package:immich_mobile/providers/album/album.provider.dart';
 import 'package:immich_mobile/providers/asset_viewer/scroll_notifier.provider.dart';
 import 'package:immich_mobile/providers/multiselect.provider.dart';
+import 'package:immich_mobile/providers/locked_view_provider.dart'; // Added
 import 'package:immich_mobile/providers/search/search_input_focus.provider.dart';
 import 'package:immich_mobile/routing/router.dart';
 import 'package:immich_mobile/providers/asset.provider.dart';
@@ -144,6 +145,8 @@ class TabControllerPage extends HookConsumerWidget {
     }
 
     final multiselectEnabled = ref.watch(multiselectProvider);
+    final isLockedView =
+        ref.watch(lockedViewProvider); // Added: Watch locked state
     return AutoTabsRouter(
       routes: [
         const PhotosRoute(),
@@ -176,9 +179,11 @@ class TabControllerPage extends HookConsumerWidget {
                     ],
                   )
                 : heroedChild,
-            bottomNavigationBar: multiselectEnabled || isScreenLandscape
-                ? null
-                : bottomNavigationBar(tabsRouter),
+            // Hide bottom nav if multiselect OR locked view OR landscape
+            bottomNavigationBar:
+                multiselectEnabled || isLockedView || isScreenLandscape
+                    ? null
+                    : bottomNavigationBar(tabsRouter),
           ),
         );
       },

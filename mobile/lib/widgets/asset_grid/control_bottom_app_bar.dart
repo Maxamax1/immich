@@ -140,6 +140,14 @@ class ControlBottomAppBar extends HookConsumerWidget {
           label: "control_bottom_app_bar_share_link".tr(),
           onPressed: enabled ? () => onShare(false) : null,
         ),
+        // Add the "View Locked" button (Moved up)
+        if (hasRemote) // Only show if there are remote assets to view
+          ControlBoxButton(
+            iconData: Icons.lock_person_outlined, // Changed Icon
+            label: "control_bottom_app_bar_view_locked"
+                .tr(), // Use translation key
+            onPressed: enabled ? onViewLocked : null,
+          ),
         if (hasRemote && onArchive != null)
           ControlBoxButton(
             iconData:
@@ -273,14 +281,6 @@ class ControlBottomAppBar extends HookConsumerWidget {
                       },
                     )
                 : null,
-          ),
-        // Add the "View Locked" button
-        if (hasRemote) // Only show if there are remote assets to view
-          ControlBoxButton(
-            iconData: Icons.lock_person_outlined, // Changed Icon
-            label: "control_bottom_app_bar_view_locked"
-                .tr(), // Use translation key
-            onPressed: enabled ? onViewLocked : null,
           ),
       ];
     }

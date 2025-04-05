@@ -9,6 +9,8 @@ import 'package:immich_mobile/providers/activity_statistics.provider.dart';
 import 'package:immich_mobile/providers/album/album.provider.dart';
 import 'package:immich_mobile/providers/album/album_viewer.provider.dart';
 import 'package:immich_mobile/providers/album/current_album.provider.dart';
+import 'package:immich_mobile/providers/locked_view_provider.dart'; // Import locked view provider
+// Removed album_lock.provider import
 import 'package:immich_mobile/routing/router.dart';
 import 'package:immich_mobile/widgets/common/immich_toast.dart';
 
@@ -21,6 +23,9 @@ class AlbumViewerAppbar extends HookConsumerWidget
     this.onAddPhotos,
     this.onAddUsers,
     required this.onActivities,
+    required this.isLockedView, // For multi-select lock state
+    required this.onAttemptUnlock, // For multi-select unlock
+    this.onEnterLockedView, // Callback for album presentation lock
   });
 
   final String userId;
@@ -28,6 +33,9 @@ class AlbumViewerAppbar extends HookConsumerWidget
   final void Function()? onAddPhotos;
   final void Function()? onAddUsers;
   final void Function() onActivities;
+  final bool isLockedView; // Multi-select lock state
+  final Future<void> Function() onAttemptUnlock; // Multi-select unlock
+  final void Function()? onEnterLockedView; // Album presentation lock callback
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -240,6 +248,20 @@ class AlbumViewerAppbar extends HookConsumerWidget
                   if (onAddPhotos != null) ...commonActions,
                   if (onAddPhotos != null && userId == album.ownerId)
                     ...ownerActions,
+                  // Enter Locked View Action
+                  if (onEnterLockedView != null)
+                    ListTile(
+                      leading: const Icon(Icons.lock_person_outlined),
+                      onTap: () {
+                        context.pop(); // Close bottom sheet
+                        onEnterLockedView!(); // Call the callback
+                      },
+                      title: Text(
+                        "album_viewer_appbar_enter_locked"
+                            .tr(), // TODO: Add translation key
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -297,7 +319,13 @@ class AlbumViewerAppbar extends HookConsumerWidget
         );
       } else {
         return IconButton(
-          onPressed: context.maybePop,
+          onPressed: () {
+            if (isLockedView) {
+              onAttemptUnlock(); // Call unlock function if locked
+            } else {
+              context.maybePop(); // Otherwise, pop normally
+            }
+          },
           icon: const Icon(Icons.arrow_back_ios_rounded),
           splashRadius: 25,
         );

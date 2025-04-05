@@ -37,6 +37,7 @@ import 'package:immich_mobile/widgets/photo_view/src/photo_view_scale_state.dart
 import 'package:immich_mobile/widgets/photo_view/src/utils/photo_view_hero_attributes.dart';
 import 'package:local_auth/local_auth.dart'; // Import local_auth
 import 'package:logging/logging.dart'; // Import logging
+import 'package:immich_mobile/providers/locked_view_provider.dart'; // Import locked view provider
 
 final log = Logger('GalleryViewerPage'); // Logger instance
 
@@ -171,6 +172,10 @@ class GalleryViewerPage extends HookConsumerWidget {
             if (didAuthenticate) {
               isLocked.value = false;
               showControlsNotifier.show = true;
+              // If the page was started locked, update the global provider too
+              if (startLocked) {
+                ref.read(lockedViewProvider.notifier).state = false;
+              }
             }
           } on PlatformException catch (e) {
             log.severe("Biometric auth error: $e");
@@ -226,14 +231,17 @@ class GalleryViewerPage extends HookConsumerWidget {
       const int sensitivity = 15;
       const int dxThreshold = 50;
       const double ratioThreshold = 3.0;
-      if (isLocked.value || isZoomed.value) return;
+      if (isZoomed.value) return; // Allow swipe down even when locked
       if (localPosition.value == null) return;
       final d = details.localPosition - localPosition.value!;
       if (d.dx.abs() > dxThreshold) return;
       final ratio = d.dy / max(d.dx.abs(), 1);
       if (d.dy > sensitivity && ratio > ratioThreshold) {
         context.maybePop();
-      } else if (d.dy < -sensitivity && ratio < -ratioThreshold) {
+      } else if (d.dy < -sensitivity &&
+          ratio < -ratioThreshold &&
+          !isLocked.value) {
+        // Add !isLocked check
         showInfo();
       }
     }
@@ -247,9 +255,8 @@ class GalleryViewerPage extends HookConsumerWidget {
           handleSwipeUpDown(details);
         },
         onTapDown: (_, __, ___) {
-          if (!isLocked.value) {
-            ref.read(showControlsProvider.notifier).toggle();
-          }
+          // Allow toggling controls even when locked
+          ref.read(showControlsProvider.notifier).toggle();
         },
         onLongPressStart: asset.isMotionPhoto
             ? (_, __, ___) {
@@ -275,9 +282,8 @@ class GalleryViewerPage extends HookConsumerWidget {
         onDragUpdate: (_, details, __) => handleSwipeUpDown(details),
         onTapDown: (_, __, ___) {
           // Keep tap handler for unlocked videos
-          if (!isLocked.value) {
-            ref.read(showControlsProvider.notifier).toggle();
-          }
+          // Allow toggling controls even when locked
+          ref.read(showControlsProvider.notifier).toggle();
         },
         heroAttributes: _getHeroAttributes(asset),
         filterQuality: FilterQuality.high,
@@ -330,14 +336,15 @@ class GalleryViewerPage extends HookConsumerWidget {
     // --- End of Function Definitions ---
 
     useEffect(() {
+      // System UI mode should only depend on showControlsProvider
       final show = ref.read(showControlsProvider);
-      if (isLocked.value) {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-      } else if (show || Platform.isIOS) {
+      if (show || Platform.isIOS) {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       } else {
+        // Use a timer to avoid flicker when controls hide quickly
         Timer(const Duration(milliseconds: 100), () {
-          if (!ref.read(showControlsProvider) && !isLocked.value) {
+          // Check again in case state changed during timer
+          if (!ref.read(showControlsProvider)) {
             SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
           }
         });
@@ -352,8 +359,8 @@ class GalleryViewerPage extends HookConsumerWidget {
       return null;
     }, []);
 
-    final bool showMainControls =
-        !isLocked.value && ref.watch(showControlsProvider);
+    // Control visibility depends only on the provider now
+    final bool showMainControls = ref.watch(showControlsProvider);
 
     Widget buildMainContent() {
       // Always use PhotoViewGallery.builder
@@ -409,11 +416,15 @@ class GalleryViewerPage extends HookConsumerWidget {
     }
 
     return PopScope(
-      canPop: !isLocked.value,
+      // Allow popping if not locked OR if started locked (returning to locked grid)
+      canPop: !isLocked.value || startLocked,
       onPopInvoked: (didPop) async {
         if (didPop) {
+          // If pop succeeded (was allowed), reset UI mode
           SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-        } else if (isLocked.value) {
+        } else {
+          // Pop was prevented (must be locked AND lock initiated here)
+          // Trigger authentication to unlock
           await toggleLockMode();
         }
       },
@@ -441,34 +452,24 @@ class GalleryViewerPage extends HookConsumerWidget {
                 ),
               ),
             ),
-            // Bottom controls (Helper handles visibility/interactivity)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: _ConditionalBottomBar(
-                renderList: renderList,
-                totalAssets: totalAssets,
-                controller: controller,
-                showStack: showStack,
-                stackIndex: stackIndex,
-                assetIndex: currentIndex,
-                isLocked: isLocked.value,
-                showControls: ref.watch(showControlsProvider),
-              ),
-            ),
-            // Always visible Lock icon when in locked state
-            if (isLocked.value)
+            // Bottom controls - Hide completely if locked
+            if (!isLocked.value)
               Positioned(
-                top: context.padding.top + 10,
-                right: 10,
-                child: IconButton(
-                  icon: Icon(Icons.lock_outline,
-                      color: Colors.white.withOpacity(0.8), size: 24),
-                  tooltip: 'gallery_viewer_authenticate_to_unlock'.tr(),
-                  onPressed: toggleLockMode,
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _ConditionalBottomBar(
+                  renderList: renderList,
+                  totalAssets: totalAssets,
+                  controller: controller,
+                  showStack: showStack,
+                  stackIndex: stackIndex,
+                  assetIndex: currentIndex,
+                  isLocked: isLocked.value, // Technically always false here now
+                  showControls: ref.watch(showControlsProvider),
                 ),
               ),
+            // Removed standalone lock icon as the AppBar handles it now
             const DownloadPanel(),
           ],
         ),

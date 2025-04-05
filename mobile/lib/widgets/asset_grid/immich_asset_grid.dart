@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:immich_mobile/extensions/asyncvalue_extensions.dart';
 import 'package:immich_mobile/providers/timeline.provider.dart';
 import 'package:immich_mobile/widgets/asset_grid/asset_grid_data_structure.dart';
+// Removed import for SelectedAssetsRenderList as it's not used directly here anymore
 import 'package:immich_mobile/widgets/asset_grid/immich_asset_grid_view.dart';
 import 'package:immich_mobile/providers/app_settings.provider.dart';
 import 'package:immich_mobile/services/app_settings.service.dart';
@@ -33,6 +34,7 @@ class ImmichAssetGrid extends HookConsumerWidget {
   final bool shrinkWrap;
   final bool showDragScroll;
   final bool showStack;
+  final bool isLocked; // Add isLocked parameter
 
   const ImmichAssetGrid({
     super.key,
@@ -53,6 +55,7 @@ class ImmichAssetGrid extends HookConsumerWidget {
     this.shrinkWrap = false,
     this.showDragScroll = true,
     this.showStack = false,
+    this.isLocked = false, // Add to constructor, default to false
   });
 
   @override
@@ -119,16 +122,26 @@ class ImmichAssetGrid extends HookConsumerWidget {
           shrinkWrap: shrinkWrap,
           showDragScroll: showDragScroll,
           showStack: showStack,
+          isLocked: isLocked, // Pass down to ImmichAssetGridView
         ),
       );
     }
 
+    // If renderList is provided directly, use it
     if (renderList != null) return buildAssetGridView(renderList!);
 
-    final renderListFuture = ref.watch(assetsTimelineProvider(assets!));
-    return renderListFuture.widgetWhen(
-      onData: (renderList) => buildAssetGridView(renderList),
-    );
+    // If assets are provided (and renderList is null), use the provider
+    // This should only happen if the caller explicitly passes assets but not renderList
+    if (assets != null) {
+      final renderListFuture = ref.watch(assetsTimelineProvider(assets!));
+      return renderListFuture.widgetWhen(
+        onData: (renderList) => buildAssetGridView(renderList),
+      );
+    }
+
+    // Fallback if neither is provided (should ideally not happen)
+    debugPrint("ImmichAssetGrid called without renderList or assets!");
+    return const Center(child: CircularProgressIndicator());
   }
 }
 

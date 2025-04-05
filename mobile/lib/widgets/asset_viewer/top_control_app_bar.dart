@@ -189,21 +189,28 @@ class TopControlAppBar extends HookConsumerWidget {
       leading: buildBackButton(),
       actionsIconTheme: const IconThemeData(size: iconSize),
       shape: const Border(),
-      actions: [
-        // Add the lock button here
-        buildLockButton(),
-        if (asset.isRemote && isOwner) buildFavoriteButton(a),
-        if (isOwner && ref.read(tabProvider.notifier).state != TabEnum.home)
-          buildLocateButton(),
-        if (asset.livePhotoVideoId != null) const MotionPhotoButton(),
-        if (asset.isLocal && !asset.isRemote) buildUploadButton(),
-        if (asset.isRemote && !asset.isLocal && isOwner) buildDownloadButton(),
-        if (asset.isRemote && (isOwner || isPartner) && !asset.isTrashed)
-          buildAddToAlbumButton(),
-        if (asset.isTrashed) buildRestoreButton(),
-        if (album != null && album.shared) buildActivitiesButton(),
-        buildMoreInfoButton(),
-      ],
+      actions: isLocked
+          ? [
+              // Only show unlock button when locked
+              buildLockButton(),
+            ]
+          : [
+              // Show all other buttons when unlocked
+              buildLockButton(), // Lock button
+              if (asset.isRemote && isOwner) buildFavoriteButton(a),
+              if (isOwner &&
+                  ref.read(tabProvider.notifier).state != TabEnum.home)
+                buildLocateButton(),
+              if (asset.livePhotoVideoId != null) const MotionPhotoButton(),
+              if (asset.isLocal && !asset.isRemote) buildUploadButton(),
+              if (asset.isRemote && !asset.isLocal && isOwner)
+                buildDownloadButton(),
+              if (asset.isRemote && (isOwner || isPartner) && !asset.isTrashed)
+                buildAddToAlbumButton(),
+              if (asset.isTrashed) buildRestoreButton(),
+              if (album != null && album.shared) buildActivitiesButton(),
+              buildMoreInfoButton(),
+            ],
     );
   }
 }

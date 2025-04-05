@@ -28,6 +28,8 @@ import 'package:immich_mobile/providers/asset_viewer/scroll_to_date_notifier.pro
 import 'package:immich_mobile/providers/haptic_feedback.provider.dart';
 import 'package:immich_mobile/providers/tab.provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:immich_mobile/widgets/asset_grid/selected_assets_render_list.dart'; // Added import
+import 'package:immich_mobile/providers/locked_view_provider.dart'; // Import locked view provider
 
 import 'asset_grid_data_structure.dart';
 import 'disable_multi_select_button.dart';
@@ -58,6 +60,7 @@ class ImmichAssetGridView extends ConsumerStatefulWidget {
   final bool shrinkWrap;
   final bool showDragScroll;
   final bool showStack;
+  final bool isLocked; // Add isLocked parameter
 
   const ImmichAssetGridView({
     super.key,
@@ -78,6 +81,7 @@ class ImmichAssetGridView extends ConsumerStatefulWidget {
     this.shrinkWrap = false,
     this.showDragScroll = true,
     this.showStack = false,
+    this.isLocked = false, // Add to constructor, default to false
   });
 
   @override
@@ -258,10 +262,24 @@ class ImmichAssetGridViewState extends ConsumerState<ImmichAssetGridView> {
           (ModalRoute.of(context)?.settings.name == AlbumViewerRoute.name);
     }
 
+    // Use a key that changes based on the renderList type or content hash
+    // to force recreation of the list state when switching views.
+    final listKey = ValueKey(widget.renderList is SelectedAssetsRenderList
+        ? 'locked-list-${widget.renderList.hashCode}'
+        : 'normal-list-${widget.renderList.hashCode}');
+
     final listWidget = ScrollablePositionedList.builder(
+      key: listKey, // Add the dynamic key here
+      // Adjust padding based on lock state
       padding: EdgeInsets.only(
-        top: appBarOffset() ? 60 : 0,
-        bottom: 220,
+        top: widget.isLocked
+            ? MediaQuery.of(context).padding.top +
+                kToolbarHeight // Status bar + space for back button
+            : (appBarOffset() ? 60 : 0), // Original top padding when unlocked
+        bottom: widget.isLocked
+            ? MediaQuery.of(context).padding.bottom +
+                80.0 // Bottom nav bar + space for FAB
+            : 220, // Original bottom padding when unlocked
       ),
       itemBuilder: _itemBuilder,
       itemPositionsListener: _itemPositionsListener,
@@ -540,42 +558,22 @@ class ImmichAssetGridViewState extends ConsumerState<ImmichAssetGridView> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !(widget.selectionActive && _selectedAssets.isNotEmpty),
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) {
-          return;
-        } else {
-          if (widget.preselectedAssets == null) {
-            Navigator.of(context).canPop() ? Navigator.of(context).pop() : null;
-          }
-          if (_selectedAssets.length != widget.preselectedAssets!.length &&
-              !widget.preselectedAssets!.containsAll(_selectedAssets)) {
-            {
-              _deselectAll();
-              return;
-            }
-          } else {
-            Navigator.of(context).canPop() ? Navigator.of(context).pop() : null;
-          }
-        }
-      },
-      child: Stack(
-        children: [
-          AssetDragRegion(
-            onStart: _setDragStartIndex,
-            onAssetEnter: _handleDragAssetEnter,
-            onEnd: _stopDrag,
-            onScroll: _dragDragScroll,
-            onScrollStart: () => WidgetsBinding.instance.addPostFrameCallback(
-              (_) => controlBottomAppBarNotifier.minimize(),
-            ),
-            child: _buildAssetGrid(),
+    // Removed PopScope wrapper. Parent should handle back navigation based on selection/lock state.
+    return Stack(
+      children: [
+        AssetDragRegion(
+          onStart: _setDragStartIndex,
+          onAssetEnter: _handleDragAssetEnter,
+          onEnd: _stopDrag,
+          onScroll: _dragDragScroll,
+          onScrollStart: () => WidgetsBinding.instance.addPostFrameCallback(
+            (_) => controlBottomAppBarNotifier.minimize(),
           ),
-          if (widget.showMultiSelectIndicator && widget.selectionActive)
-            _buildMultiSelectIndicator(),
-        ],
-      ),
+          child: _buildAssetGrid(),
+        ),
+        if (widget.showMultiSelectIndicator && widget.selectionActive)
+          _buildMultiSelectIndicator(),
+      ],
     );
   }
 }
@@ -783,7 +781,8 @@ class _Title extends StatelessWidget {
 }
 
 /// The row of assets
-class _AssetRow extends StatelessWidget {
+class _AssetRow extends ConsumerWidget {
+  // Change to ConsumerWidget
   final List<Asset> assets;
   final int rowStartIndex;
   final int sectionIndex;
@@ -826,7 +825,8 @@ class _AssetRow extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Add WidgetRef ref
     // Default: All assets have the same width
     final widthDistribution = List.filled(assets.length, 1.0);
 
@@ -875,12 +875,16 @@ class _AssetRow extends StatelessWidget {
               } else {
                 final asset = renderList.loadAsset(absoluteOffset + index);
                 onAssetTap(asset);
+                // Read the locked state from the provider
+                final bool isLocked =
+                    ref.read(lockedViewProvider); // Use ref directly
                 context.pushRoute(
                   GalleryViewerRoute(
                     renderList: renderList,
                     initialIndex: absoluteOffset + index,
                     heroOffset: heroOffset,
                     showStack: showStack,
+                    startLocked: isLocked, // Pass the locked state
                   ),
                 );
               }
