@@ -264,9 +264,11 @@ class ImmichAssetGridViewState extends ConsumerState<ImmichAssetGridView> {
 
     // Use a key that changes based on the renderList type or content hash
     // to force recreation of the list state when switching views.
-    final listKey = ValueKey(widget.renderList is SelectedAssetsRenderList
-        ? 'locked-list-${widget.renderList.hashCode}'
-        : 'normal-list-${widget.renderList.hashCode}');
+    final listKey = ValueKey(
+      widget.renderList is SelectedAssetsRenderList
+          ? 'locked-list-${widget.renderList.hashCode}'
+          : 'normal-list-${widget.renderList.hashCode}',
+    );
 
     final listWidget = ScrollablePositionedList.builder(
       key: listKey, // Add the dynamic key here

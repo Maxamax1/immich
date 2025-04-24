@@ -111,43 +111,83 @@ class AlbumViewer extends HookConsumerWidget {
       }
     }
 
-    // Function to enter album presentation lock mode
+    // Function to enter album presentation lock mode (REVISED)
     void onEnterLockedView() async {
       try {
-        // Show loading overlay while fetching assets
         isProcessing.value = true;
+        _log.info(
+          "Attempting to enter locked view for album ${album.id}. Awaiting timeline provider...",
+        );
 
-        // Await the future to ensure data is loaded
-        final currentAlbumTimeline =
-            await ref.read(albumTimelineProvider(album.id).future);
-        // Error handling during await is implicitly done by the FutureProvider
+        // 1. Await the future to ensure the provider has resolved at least once
+        await ref.read(albumTimelineProvider(album.id).future);
+        _log.info("Timeline provider future completed for album ${album.id}.");
 
-        final allAlbumAssets = currentAlbumTimeline.allAssets;
+        // 2. After awaiting, re-read the current state to get the actual data
+        final asyncValue = ref.read(albumTimelineProvider(album.id));
+        final currentAlbumTimeline = asyncValue.valueOrNull;
+        _log.info(
+          "Re-read timeline provider state. Value is null: ${currentAlbumTimeline == null}",
+        );
 
-        // Add null check before accessing isEmpty
-        if (allAlbumAssets == null || allAlbumAssets.isEmpty) {
+        // 3. Check if data is actually available after awaiting
+        if (currentAlbumTimeline == null) {
+          _log.warning(
+            "Cannot enter locked view: Album timeline data still not available after await.",
+          );
+          if (context.mounted) {
+            ImmichToast.show(
+              context: context,
+              msg:
+                  "Error loading album data. Please try again.", // TODO: Add translation
+              toastType: ToastType.error,
+            );
+          }
+          return;
+        }
+
+        // 4. Safely load all assets using the RenderList's method
+        final allAlbumAssets = currentAlbumTimeline.loadAssets(
+          0,
+          currentAlbumTimeline.totalAssets,
+        );
+        _log.info(
+          "Loaded allAlbumAssets for album ${album.id} using loadAssets. Length: ${allAlbumAssets.length}",
+        );
+
+        // 5. Check if assets are empty
+        if (allAlbumAssets.isEmpty) {
+          _log.warning("allAlbumAssets is null or empty, showing toast.");
           if (!context.mounted) return;
           ImmichToast.show(
             context: context,
-            msg: "album_viewer_lock_empty".tr(), // TODO: Add translation
+            msg: "album_viewer_lock_empty".tr(), // Use the same translation key
             toastType: ToastType.info,
           );
           return; // Exit if no assets
         }
 
-        // Create a RenderList containing only these assets
-        // Use ! because we've confirmed allAlbumAssets is not null above
-        final lockedList = SelectedAssetsRenderList(allAlbumAssets!);
-        externalLockedListNotifier.value = lockedList; // Set the external list
-
-        // Activate the global lock
-        ref.read(lockedViewProvider.notifier).state = true;
-        // Use ?.length for null safety
+        // 6. Create a RenderList containing the fetched assets
+        final lockedList = SelectedAssetsRenderList(
+          allAlbumAssets,
+        ); // Use ! as null check passed
         _log.info(
-            "Entering locked presentation mode for album ${album.id} with ${allAlbumAssets?.length ?? 0} assets.");
+          "Created SelectedAssetsRenderList with ${allAlbumAssets.length} assets.",
+        );
+
+        // 7. Set the external notifier *with the populated list*
+        externalLockedListNotifier.value = lockedList;
+        _log.info("Set externalLockedListNotifier with the populated list.");
+
+        // 8. Activate the global lock AFTER setting the notifier value
+        ref.read(lockedViewProvider.notifier).state = true;
+        _log.info("Activated global lock. Entering locked presentation mode.");
       } catch (e, s) {
         _log.severe(
-            "Error entering locked view for album ${album.id}: $e", e, s);
+          "Error entering locked view for album ${album.id}: $e",
+          e,
+          s,
+        );
         if (context.mounted) {
           ImmichToast.show(
             context: context,
@@ -156,7 +196,6 @@ class AlbumViewer extends HookConsumerWidget {
           );
         }
       } finally {
-        // Hide loading overlay regardless of success/failure
         isProcessing.value = false;
       }
     }
@@ -266,8 +305,10 @@ class AlbumViewer extends HookConsumerWidget {
                 top: context.padding.top,
                 left: 8,
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white,
+                  ),
                   onPressed: attemptUnlockMultiselect, // Use unified unlock
                   tooltip: 'gallery_viewer_authenticate_to_unlock'.tr(),
                   splashRadius: 25,

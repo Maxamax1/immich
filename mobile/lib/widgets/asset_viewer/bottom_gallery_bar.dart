@@ -58,8 +58,12 @@ class BottomGalleryBar extends ConsumerWidget {
     }
   }
 
-  Future<void> _handleDelete(BuildContext context, WidgetRef ref, Asset asset,
-      bool isStackPrimaryAsset) async {
+  Future<void> _handleDelete(
+    BuildContext context,
+    WidgetRef ref,
+    Asset asset,
+    bool isStackPrimaryAsset,
+  ) async {
     final isTrashEnabled =
         ref.read(serverInfoProvider.select((v) => v.serverFeatures.trash));
     final navStack = AutoRouter.of(context).stackData;
@@ -97,10 +101,11 @@ class BottomGalleryBar extends ConsumerWidget {
       if (isDeleted) {
         if (context.mounted && asset.isRemote && isStackPrimaryAsset) {
           ImmichToast.show(
-              durationInSecond: 1,
-              context: context,
-              msg: 'Asset trashed',
-              gravity: ToastGravity.BOTTOM);
+            durationInSecond: 1,
+            context: context,
+            msg: 'Asset trashed',
+            gravity: ToastGravity.BOTTOM,
+          );
         }
         _removeAssetFromStack(ref, asset.stackId);
       }
@@ -123,15 +128,22 @@ class BottomGalleryBar extends ConsumerWidget {
   }
 
   Future<void> _unStack(
-      WidgetRef ref, Asset asset, List<Asset> stackItems) async {
+    WidgetRef ref,
+    Asset asset,
+    List<Asset> stackItems,
+  ) async {
     if (asset.stackId == null) return;
     await ref
         .read(stackServiceProvider)
         .deleteStack(asset.stackId!, stackItems);
   }
 
-  void _showStackActionItems(BuildContext context, WidgetRef ref, Asset asset,
-      List<Asset> stackItems) {
+  void _showStackActionItems(
+    BuildContext context,
+    WidgetRef ref,
+    Asset asset,
+    List<Asset> stackItems,
+  ) {
     showModalBottomSheet<void>(
       context: context,
       enableDrag: false,
@@ -149,9 +161,10 @@ class BottomGalleryBar extends ConsumerWidget {
                     ctx.pop();
                     context.maybePop();
                   },
-                  title: const Text("viewer_unstack",
-                          style: TextStyle(fontWeight: FontWeight.bold))
-                      .tr(),
+                  title: const Text(
+                    "viewer_unstack",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ).tr(),
                 ),
               ],
             ),
@@ -164,10 +177,11 @@ class BottomGalleryBar extends ConsumerWidget {
   void _shareAsset(BuildContext context, WidgetRef ref, Asset asset) {
     if (asset.isOffline) {
       ImmichToast.show(
-          durationInSecond: 1,
-          context: context,
-          msg: 'asset_action_share_err_offline'.tr(),
-          gravity: ToastGravity.BOTTOM);
+        durationInSecond: 1,
+        context: context,
+        msg: 'asset_action_share_err_offline'.tr(),
+        gravity: ToastGravity.BOTTOM,
+      );
       return;
     }
     ref.read(downloadStateProvider.notifier).shareAsset(asset, context);
@@ -175,13 +189,20 @@ class BottomGalleryBar extends ConsumerWidget {
 
   void _handleEdit(BuildContext context, Asset asset) async {
     final image = Image(image: ImmichImage.imageProvider(asset: asset));
-    context.navigator.push(MaterialPageRoute(
+    context.navigator.push(
+      MaterialPageRoute(
         builder: (context) =>
-            EditImagePage(asset: asset, image: image, isEdited: false)));
+            EditImagePage(asset: asset, image: image, isEdited: false),
+      ),
+    );
   }
 
-  void _handleArchive(BuildContext context, WidgetRef ref, Asset asset,
-      bool isStackPrimaryAsset) {
+  void _handleArchive(
+    BuildContext context,
+    WidgetRef ref,
+    Asset asset,
+    bool isStackPrimaryAsset,
+  ) {
     ref.read(assetProvider.notifier).toggleArchive([asset]);
     if (isStackPrimaryAsset) {
       context.maybePop();
@@ -196,17 +217,21 @@ class BottomGalleryBar extends ConsumerWidget {
     }
     if (asset.isOffline) {
       ImmichToast.show(
-          durationInSecond: 1,
-          context: context,
-          msg: 'asset_action_share_err_offline'.tr(),
-          gravity: ToastGravity.BOTTOM);
+        durationInSecond: 1,
+        context: context,
+        msg: 'asset_action_share_err_offline'.tr(),
+        gravity: ToastGravity.BOTTOM,
+      );
       return;
     }
     ref.read(downloadStateProvider.notifier).downloadAsset(asset, context);
   }
 
   Future<void> _handleRemoveFromAlbum(
-      BuildContext context, WidgetRef ref, Asset asset) async {
+    BuildContext context,
+    WidgetRef ref,
+    Asset asset,
+  ) async {
     final album = ref.read(currentAlbumProvider);
     final bool isSuccess = album != null &&
         await ref.read(albumProvider.notifier).removeAsset(album, [asset]);
@@ -228,10 +253,11 @@ class BottomGalleryBar extends ConsumerWidget {
       }
     } else {
       ImmichToast.show(
-          context: context,
-          msg: "album_viewer_appbar_share_err_remove".tr(),
-          toastType: ToastType.error,
-          gravity: ToastGravity.BOTTOM);
+        context: context,
+        msg: "album_viewer_appbar_share_err_remove".tr(),
+        toastType: ToastType.error,
+        gravity: ToastGravity.BOTTOM,
+      );
     }
   }
 
@@ -252,10 +278,7 @@ class BottomGalleryBar extends ConsumerWidget {
         : <Asset>[];
     bool isStackPrimaryAsset = asset.stackPrimaryAssetId == null;
     final navStack = AutoRouter.of(context).stackData;
-    final isTrashEnabled =
-        ref.watch(serverInfoProvider.select((v) => v.serverFeatures.trash));
-    final isFromTrash = isTrashEnabled &&
-        navStack.length > 2 &&
+    navStack.length > 2 &&
         navStack.elementAt(navStack.length - 2).name == TrashRoute.name;
     final isInAlbum = ref.watch(currentAlbumProvider)?.isRemote ?? false;
 

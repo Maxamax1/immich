@@ -280,14 +280,16 @@ class NativeVideoViewerPage extends HookConsumerWidget {
       // Check if controller is already initialized for this widget instance
       if (controller.value != null) {
         log.fine(
-            "Controller already initialized for asset ${asset.id}. Skipping re-initialization.");
+          "Controller already initialized for asset ${asset.id}. Skipping re-initialization.",
+        );
         // Potentially ensure listeners are still attached if needed, though they should persist with the controller instance.
         return;
       }
 
       if (!context.mounted) {
         log.warning(
-            "initController called but context is not mounted for asset ${asset.id}");
+          "initController called but context is not mounted for asset ${asset.id}",
+        );
         return;
       }
 
@@ -406,22 +408,18 @@ class NativeVideoViewerPage extends HookConsumerWidget {
         // For motion videos, this is the image portion of the asset
         Center(child: image), // Remove key from placeholder
         if (aspectRatio.value != null)
-          // Wrap only the video player view area with IgnorePointer when locked
-          IgnorePointer(
-            ignoring: isLocked,
-            child: Visibility.maintain(
-              visible: isVisible.value,
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: aspectRatio.value!,
-                  child: isCurrent
-                      ? NativeVideoPlayerView(
-                          key:
-                              ValueKey(asset.id), // Use asset.id for stable key
-                          onViewReady: initController,
-                        )
-                      : null,
-                ),
+          // Removed IgnorePointer wrapper
+          Visibility.maintain(
+            visible: isVisible.value,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: aspectRatio.value!,
+                child: isCurrent
+                    ? NativeVideoPlayerView(
+                        key: ValueKey(asset.id), // Use asset.id for stable key
+                        onViewReady: initController,
+                      )
+                    : null,
               ),
             ),
           ),

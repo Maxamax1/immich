@@ -13,7 +13,6 @@ import 'package:immich_mobile/entities/asset.entity.dart';
 import 'package:immich_mobile/extensions/build_context_extensions.dart';
 import 'package:immich_mobile/extensions/scroll_extensions.dart';
 import 'package:immich_mobile/pages/common/download_panel.dart';
-import 'package:immich_mobile/pages/common/gallery_stacked_children.dart';
 import 'package:immich_mobile/pages/common/native_video_viewer.page.dart';
 import 'package:immich_mobile/providers/app_settings.provider.dart';
 import 'package:immich_mobile/providers/asset_viewer/asset_stack.provider.dart';
@@ -66,25 +65,22 @@ class _ConditionalBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSelectionMode = renderList is SelectedAssetsRenderList;
-    final bool shouldBeVisible = isSelectionMode || showControls;
+    // final bool shouldBeVisible = isSelectionMode || showControls; // Removed unused variable
     // Ignore interaction ONLY if locked AND NOT in selection mode.
     final bool ignoreInteraction = isLocked && !isSelectionMode;
 
+    // Opacity is now handled by the parent widget
     return IgnorePointer(
       ignoring: ignoreInteraction,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 150),
-        opacity: shouldBeVisible ? 1.0 : 0.0,
-        child: BottomGalleryBar(
-          renderList: renderList,
-          totalAssets: totalAssets,
-          controller: controller,
-          showStack: showStack,
-          stackIndex: stackIndex,
-          assetIndex: assetIndex,
-          isLocked: isLocked,
-          isSelectionMode: isSelectionMode,
-        ),
+      child: BottomGalleryBar(
+        renderList: renderList,
+        totalAssets: totalAssets,
+        controller: controller,
+        showStack: showStack,
+        stackIndex: stackIndex,
+        assetIndex: assetIndex,
+        isLocked: isLocked,
+        isSelectionMode: isSelectionMode,
       ),
     );
   }
@@ -113,10 +109,11 @@ class GalleryViewerPage extends HookConsumerWidget {
   @pragma('vm:prefer-inline')
   PhotoViewHeroAttributes _getHeroAttributes(Asset asset) {
     return PhotoViewHeroAttributes(
-        tag: asset.isInDb
-            ? asset.id + heroOffset
-            : '${asset.remoteId}-$heroOffset',
-        transitionOnUserGestures: true);
+      tag: asset.isInDb
+          ? asset.id + heroOffset
+          : '${asset.remoteId}-$heroOffset',
+      transitionOnUserGestures: true,
+    );
   }
 
   @override
@@ -144,10 +141,14 @@ class GalleryViewerPage extends HookConsumerWidget {
         if (index < totalAssets.value && index >= 0) {
           final asset = loadAsset(index);
           await precacheImage(
-              ImmichImage.imageProvider(
-                  asset: asset, width: context.width, height: context.height),
-              context,
-              onError: onError);
+            ImmichImage.imageProvider(
+              asset: asset,
+              width: context.width,
+              height: context.height,
+            ),
+            context,
+            onError: onError,
+          );
         }
       } catch (e) {
         log.severe('Error precaching image: $e');
@@ -166,9 +167,12 @@ class GalleryViewerPage extends HookConsumerWidget {
         if (isBiometricSupported && canCheckBiometrics) {
           try {
             final bool didAuthenticate = await localAuth.authenticate(
-                localizedReason: 'gallery_viewer_authenticate_to_unlock'.tr(),
-                options: const AuthenticationOptions(
-                    biometricOnly: true, stickyAuth: true));
+              localizedReason: 'gallery_viewer_authenticate_to_unlock'.tr(),
+              options: const AuthenticationOptions(
+                biometricOnly: true,
+                stickyAuth: true,
+              ),
+            );
             if (didAuthenticate) {
               isLocked.value = false;
               showControlsNotifier.show = true;
@@ -198,7 +202,8 @@ class GalleryViewerPage extends HookConsumerWidget {
       if (asset == null) return;
       showModalBottomSheet(
         shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(15.0))),
+          borderRadius: BorderRadius.all(Radius.circular(15.0)),
+        ),
         barrierColor: Colors.transparent,
         isScrollControlled: true,
         showDragHandle: true,
@@ -215,11 +220,16 @@ class GalleryViewerPage extends HookConsumerWidget {
               return Padding(
                 padding: EdgeInsets.only(bottom: context.viewInsets.bottom),
                 child: ref.watch(appSettingsServiceProvider).getSetting<bool>(
-                        AppSettingsEnum.advancedTroubleshooting)
+                          AppSettingsEnum.advancedTroubleshooting,
+                        )
                     ? AdvancedBottomSheet(
-                        assetDetail: asset, scrollController: scrollController)
+                        assetDetail: asset,
+                        scrollController: scrollController,
+                      )
                     : DetailPanel(
-                        asset: asset, scrollController: scrollController),
+                        asset: asset,
+                        scrollController: scrollController,
+                      ),
               );
             },
           );
@@ -304,9 +314,13 @@ class GalleryViewerPage extends HookConsumerWidget {
             isLocked: isLocked.value, // Pass the locked state down
             image: Image(
               key: ValueKey(
-                  "placeholder_${asset.id}"), // Use stable asset ID for image key
+                "placeholder_${asset.id}",
+              ), // Use stable asset ID for image key
               image: ImmichImage.imageProvider(
-                  asset: asset, width: context.width, height: context.height),
+                asset: asset,
+                width: context.width,
+                height: context.height,
+              ),
               fit: BoxFit.contain,
               height: context.height,
               width: context.width,
@@ -335,29 +349,35 @@ class GalleryViewerPage extends HookConsumerWidget {
     }
     // --- End of Function Definitions ---
 
-    useEffect(() {
-      // System UI mode should only depend on showControlsProvider
-      final show = ref.read(showControlsProvider);
-      if (show || Platform.isIOS) {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      } else {
-        // Use a timer to avoid flicker when controls hide quickly
-        Timer(const Duration(milliseconds: 100), () {
-          // Check again in case state changed during timer
-          if (!ref.read(showControlsProvider)) {
-            SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-          }
-        });
-      }
-      return null;
-    }, [isLocked.value, ref.watch(showControlsProvider)]);
+    useEffect(
+      () {
+        // System UI mode should only depend on showControlsProvider
+        final show = ref.read(showControlsProvider);
+        if (show || Platform.isIOS) {
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        } else {
+          // Use a timer to avoid flicker when controls hide quickly
+          Timer(const Duration(milliseconds: 100), () {
+            // Check again in case state changed during timer
+            if (!ref.read(showControlsProvider)) {
+              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+            }
+          });
+        }
+        return null;
+      },
+      [isLocked.value, ref.watch(showControlsProvider)],
+    );
 
-    useEffect(() {
-      Timer(const Duration(milliseconds: 400), () {
-        precacheNextImage(currentIndex.value + 1);
-      });
-      return null;
-    }, []);
+    useEffect(
+      () {
+        Timer(const Duration(milliseconds: 400), () {
+          precacheNextImage(currentIndex.value + 1);
+        });
+        return null;
+      },
+      [],
+    );
 
     // Control visibility depends only on the provider now
     final bool showMainControls = ref.watch(showControlsProvider);
@@ -382,11 +402,19 @@ class GalleryViewerPage extends HookConsumerWidget {
         loadingBuilder: (context, event, index) {
           final asset = loadAsset(index);
           return ClipRect(
-              child: Stack(fit: StackFit.expand, children: [
-            BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10)),
-            ImmichThumbnail(
-                key: ValueKey(asset), asset: asset, fit: BoxFit.contain)
-          ]));
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10)),
+                ImmichThumbnail(
+                  key: ValueKey(asset),
+                  asset: asset,
+                  fit: BoxFit.contain,
+                ),
+              ],
+            ),
+          );
         },
         pageController: controller,
         // Disable horizontal scrolling if zoomed OR (locked AND not in selection mode)
@@ -445,31 +473,45 @@ class GalleryViewerPage extends HookConsumerWidget {
                 child: IgnorePointer(
                   ignoring: !showMainControls,
                   child: GalleryAppBar(
-                      key: const ValueKey('app-bar'),
-                      showInfo: showInfo,
-                      isLocked: isLocked.value,
-                      onToggleLock: toggleLockMode),
+                    key: const ValueKey('app-bar'),
+                    showInfo: showInfo,
+                    isLocked: isLocked.value,
+                    onToggleLock: toggleLockMode,
+                  ),
                 ),
               ),
             ),
-            // Bottom controls - Hide completely if locked
-            if (!isLocked.value)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: _ConditionalBottomBar(
-                  renderList: renderList,
-                  totalAssets: totalAssets,
-                  controller: controller,
-                  showStack: showStack,
-                  stackIndex: stackIndex,
-                  assetIndex: currentIndex,
-                  isLocked: isLocked.value, // Technically always false here now
-                  showControls: ref.watch(showControlsProvider),
+            // Bottom controls - Always render, let _ConditionalBottomBar handle visibility/interaction
+            Positioned(
+              bottom: 0, // Keep anchored to bottom edge
+              left: 0,
+              right: 0,
+              // Apply AnimatedOpacity here, around the AnimatedPadding
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 150),
+                opacity: showMainControls ? 1.0 : 0.0,
+                // Replace Padding with AnimatedPadding
+                child: AnimatedPadding(
+                  duration: const Duration(milliseconds: 150),
+                  // Animate padding based on showMainControls
+                  padding: EdgeInsets.only(
+                    bottom: showMainControls
+                        ? MediaQuery.of(context).padding.bottom
+                        : 0,
+                  ),
+                  child: _ConditionalBottomBar(
+                    renderList: renderList,
+                    totalAssets: totalAssets,
+                    controller: controller,
+                    showStack: showStack,
+                    stackIndex: stackIndex,
+                    assetIndex: currentIndex,
+                    isLocked: isLocked.value,
+                    showControls: showMainControls,
+                  ),
                 ),
               ),
-            // Removed standalone lock icon as the AppBar handles it now
+            ),
             const DownloadPanel(),
           ],
         ),

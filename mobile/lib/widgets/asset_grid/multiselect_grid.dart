@@ -90,7 +90,8 @@ class MultiselectGrid extends HookConsumerWidget {
     final processing = useProcessingOverlay();
 
     log.fine(
-        "--- Build Start --- isLockedView: $isLockedView, internalLockedListState is null: ${lockedRenderListState.value == null}, externalLockedListNotifier is null: ${externalLockedListNotifier == null}");
+      "--- Build Start --- isLockedView: $isLockedView, internalLockedListState is null: ${lockedRenderListState.value == null}, externalLockedListNotifier is null: ${externalLockedListNotifier == null}",
+    );
 
     useEffect(
       () {
@@ -388,13 +389,16 @@ class MultiselectGrid extends HookConsumerWidget {
     void onViewLocked() {
       if (selection.value.isEmpty) return;
       log.info(
-          "Entering onViewLocked (multi-select). Selection count: ${selection.value.length}");
+        "Entering onViewLocked (multi-select). Selection count: ${selection.value.length}",
+      );
       final lockedList = SelectedAssetsRenderList(selection.value.toList());
       log.info(
-          "Created internal lockedList with ${lockedList.totalAssets} assets.");
+        "Created internal lockedList with ${lockedList.totalAssets} assets.",
+      );
       lockedRenderListState.value = lockedList; // Set internal state
       log.info(
-          "Set internal lockedRenderListState.value. Is empty? ${lockedRenderListState.value?.isEmpty}");
+        "Set internal lockedRenderListState.value. Is empty? ${lockedRenderListState.value?.isEmpty}",
+      );
       selectionEnabledHook.value = false;
       ref.read(lockedViewProvider.notifier).state =
           true; // Activate global lock
@@ -414,7 +418,9 @@ class MultiselectGrid extends HookConsumerWidget {
           final bool didAuthenticate = await localAuth.authenticate(
             localizedReason: 'gallery_viewer_authenticate_to_unlock'.tr(),
             options: const AuthenticationOptions(
-                biometricOnly: true, stickyAuth: true),
+              biometricOnly: true,
+              stickyAuth: true,
+            ),
           );
           if (didAuthenticate) {
             lockedRenderListState.value = null; // Clear internal state
@@ -473,15 +479,18 @@ class MultiselectGrid extends HookConsumerWidget {
 
                     if (listToUse == null || listToUse.isEmpty) {
                       log.warning(
-                          "Rendering locked view (global state): buildEmptyIndicator() because effective list is null or empty (external: ${externalList != null}, internal: ${lockedRenderListState.value != null}).");
+                        "Rendering locked view (global state): buildEmptyIndicator() because effective list is null or empty (external: ${externalList != null}, internal: ${lockedRenderListState.value != null}).",
+                      );
                       return buildEmptyIndicator();
                     } else {
                       log.info(
-                          "Rendering locked view (global state): ImmichAssetGrid with effective list (${listToUse.totalAssets} assets, source: ${externalList != null ? 'external' : 'internal'}).");
+                        "Rendering locked view (global state): ImmichAssetGrid with effective list (${listToUse.totalAssets} assets, source: ${externalList != null ? 'external' : 'internal'}).",
+                      );
                       return ImmichAssetGrid(
                         // Use a key based on the list's hashcode and source
                         key: ValueKey(
-                            '${externalList != null ? 'external' : 'internal'}-locked-grid-${listToUse.hashCode}'),
+                          '${externalList != null ? 'external' : 'internal'}-locked-grid-${listToUse.hashCode}',
+                        ),
                         renderList: listToUse,
                         listener: null, // No selection in locked view
                         selectionActive: false, // No selection in locked view
@@ -500,12 +509,14 @@ class MultiselectGrid extends HookConsumerWidget {
                     if (data.isEmpty &&
                         (buildLoadingIndicator != null || topWidget == null)) {
                       log.fine(
-                          "Rendering normal view: buildEmptyIndicator() because provided data is empty.");
+                        "Rendering normal view: buildEmptyIndicator() because provided data is empty.",
+                      );
                       return (buildLoadingIndicator ?? buildEmptyIndicator)();
                     }
                     // Render the normal grid using the provided data
                     log.fine(
-                        "Rendering normal view: ImmichAssetGrid with provided data (${data.totalAssets} assets).");
+                      "Rendering normal view: ImmichAssetGrid with provided data (${data.totalAssets} assets).",
+                    );
                     return ImmichAssetGrid(
                       key: const ValueKey('normal-grid'),
                       renderList: data,
@@ -524,7 +535,8 @@ class MultiselectGrid extends HookConsumerWidget {
                   },
                   error: (error, _) {
                     log.severe(
-                        "Rendering normal view: Error loading data: $error");
+                      "Rendering normal view: Error loading data: $error",
+                    );
                     return Center(child: Text(error.toString()));
                   },
                   loading: () {

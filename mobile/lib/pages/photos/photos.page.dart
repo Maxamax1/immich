@@ -189,8 +189,10 @@ class PhotosPage extends HookConsumerWidget {
               top: context.padding.top,
               left: 8,
               child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white,
+                ),
                 onPressed: attemptUnlock,
                 tooltip: 'gallery_viewer_authenticate_to_unlock'.tr(),
                 splashRadius: 25,
