@@ -793,13 +793,14 @@ class SyncService {
   /// Inserts or updates the assets in the database with their ExifInfo (if any)
   Future<void> upsertAssetsWithExif(List<Asset> assets) async {
     if (assets.isEmpty) return;
-    final exifInfos = assets.map((e) => e.exifInfo).nonNulls.toList();
+
     try {
       await _assetRepository.transaction(() async {
         await _assetRepository.updateAll(assets);
         for (final Asset added in assets) {
-          added.exifInfo ??= added.exifInfo?.copyWith(assetId: added.id);
+          added.exifInfo = added.exifInfo?.copyWith(assetId: added.id);
         }
+        final exifInfos = assets.map((e) => e.exifInfo).nonNulls.toList();
         await _exifInfoRepository.updateAll(exifInfos);
       });
       _log.info("Upserted ${assets.length} assets into the DB");

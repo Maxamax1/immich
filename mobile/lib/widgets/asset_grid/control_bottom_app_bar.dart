@@ -132,7 +132,7 @@ class ControlBottomAppBar extends HookConsumerWidget {
             iconData: Platform.isAndroid
                 ? Icons.share_rounded
                 : Icons.ios_share_rounded,
-            label: "control_bottom_app_bar_share".tr(),
+            label: "share".tr(),
             onPressed: enabled ? () => onShare(true) : null,
           ),
         ControlBoxButton(
@@ -152,10 +152,7 @@ class ControlBottomAppBar extends HookConsumerWidget {
           ControlBoxButton(
             iconData:
                 unarchive ? Icons.unarchive_outlined : Icons.archive_outlined,
-            label: (unarchive
-                    ? "control_bottom_app_bar_unarchive"
-                    : "control_bottom_app_bar_archive")
-                .tr(),
+            label: (unarchive ? "unarchive" : "archive").tr(),
             onPressed: enabled ? onArchive : null,
           ),
         if (hasRemote && onFavorite != null)
@@ -163,10 +160,7 @@ class ControlBottomAppBar extends HookConsumerWidget {
             iconData: unfavorite
                 ? Icons.favorite_border_rounded
                 : Icons.favorite_rounded,
-            label: (unfavorite
-                    ? "control_bottom_app_bar_unfavorite"
-                    : "control_bottom_app_bar_favorite")
-                .tr(),
+            label: (unfavorite ? "unfavorite" : "favorite").tr(),
             onPressed: enabled ? onFavorite : null,
           ),
         if (hasLocal && hasRemote && onDelete != null)
@@ -174,7 +168,7 @@ class ControlBottomAppBar extends HookConsumerWidget {
             constraints: const BoxConstraints(maxWidth: 90),
             child: ControlBoxButton(
               iconData: Icons.delete_sweep_outlined,
-              label: "control_bottom_app_bar_delete".tr(),
+              label: "delete".tr(),
               onPressed: enabled
                   ? () => handleRemoteDelete(!trashEnabled, onDelete!)
                   : null,
@@ -254,7 +248,7 @@ class ControlBottomAppBar extends HookConsumerWidget {
             constraints: const BoxConstraints(maxWidth: 90),
             child: ControlBoxButton(
               iconData: Icons.filter_none_rounded,
-              label: "control_bottom_app_bar_stack".tr(),
+              label: "stack".tr(),
               onPressed: enabled ? onStack : null,
             ),
           ),
@@ -263,14 +257,14 @@ class ControlBottomAppBar extends HookConsumerWidget {
             constraints: const BoxConstraints(maxWidth: 90),
             child: ControlBoxButton(
               iconData: Icons.remove_circle_outline,
-              label: 'album_viewer_appbar_share_remove'.tr(),
+              label: 'remove_from_album'.tr(),
               onPressed: enabled ? onRemoveFromAlbum : null,
             ),
           ),
         if (selectionAssetState.hasLocal)
           ControlBoxButton(
             iconData: Icons.backup_outlined,
-            label: "control_bottom_app_bar_upload".tr(),
+            label: "upload".tr(),
             onPressed: enabled
                 ? () => showDialog(
                       context: context,
@@ -369,7 +363,7 @@ class _AddToAlbumTitleRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Text(
-            "common_add_to_album",
+            "add_to_album",
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,

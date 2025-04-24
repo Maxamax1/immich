@@ -32,10 +32,10 @@ class TabControllerPage extends HookConsumerWidget {
         children: [
           icon,
           Positioned(
-            right: -14,
+            right: -18,
             child: SizedBox(
-              height: 12,
-              width: 12,
+              height: 20,
+              width: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 valueColor: AlwaysStoppedAnimation<Color>(
@@ -66,7 +66,7 @@ class TabControllerPage extends HookConsumerWidget {
 
     final navigationDestinations = [
       NavigationDestination(
-        label: 'tab_controller_nav_photos'.tr(),
+        label: 'photos'.tr(),
         icon: const Icon(
           Icons.photo_library_outlined,
         ),
@@ -79,7 +79,7 @@ class TabControllerPage extends HookConsumerWidget {
         ),
       ),
       NavigationDestination(
-        label: 'tab_controller_nav_search'.tr(),
+        label: 'search'.tr(),
         icon: const Icon(
           Icons.search_rounded,
         ),

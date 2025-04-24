@@ -33,6 +33,7 @@ class ImmichAssetGrid extends HookConsumerWidget {
   final Widget? topWidget;
   final bool shrinkWrap;
   final bool showDragScroll;
+  final bool showDragScrollLabel;
   final bool showStack;
   final bool isLocked; // Add isLocked parameter
 
@@ -54,6 +55,7 @@ class ImmichAssetGrid extends HookConsumerWidget {
     this.topWidget,
     this.shrinkWrap = false,
     this.showDragScroll = true,
+    this.showDragScrollLabel = true,
     this.showStack = false,
     this.isLocked = false, // Add to constructor, default to false
   });
@@ -123,6 +125,7 @@ class ImmichAssetGrid extends HookConsumerWidget {
           showDragScroll: showDragScroll,
           showStack: showStack,
           isLocked: isLocked, // Pass down to ImmichAssetGridView
+          showLabel: showDragScrollLabel,
         ),
       );
     }

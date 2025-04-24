@@ -13,6 +13,7 @@ import 'package:immich_mobile/entities/asset.entity.dart';
 import 'package:immich_mobile/extensions/build_context_extensions.dart';
 import 'package:immich_mobile/extensions/scroll_extensions.dart';
 import 'package:immich_mobile/pages/common/download_panel.dart';
+import 'package:immich_mobile/pages/common/gallery_stacked_children.dart';
 import 'package:immich_mobile/pages/common/native_video_viewer.page.dart';
 import 'package:immich_mobile/providers/app_settings.provider.dart';
 import 'package:immich_mobile/providers/asset_viewer/asset_stack.provider.dart';
@@ -127,8 +128,6 @@ class GalleryViewerPage extends HookConsumerWidget {
     final currentIndex = useValueNotifier(initialIndex);
     final loadAsset = renderList.loadAsset;
     final isPlayingMotionVideo = ref.watch(isPlayingMotionVideoProvider);
-    final isSelectionMode = renderList is SelectedAssetsRenderList;
-    final currentAsset = ref.watch(currentAssetProvider);
 
     // --- Function Definitions ---
     Future<void> precacheNextImage(int index) async {
@@ -284,8 +283,8 @@ class GalleryViewerPage extends HookConsumerWidget {
     }
 
     PhotoViewGalleryPageOptions buildVideo(BuildContext context, Asset asset) {
-      // Revert: Remove useMemoized call from buildVideo
-      // Directly create and return the PageOptions
+      // This key is to prevent the video player from being re-initialized during the hero animation
+      final key = GlobalKey();
       return PhotoViewGalleryPageOptions.customChild(
         onDragStart: (_, details, __) =>
             localPosition.value = details.localPosition,
@@ -307,9 +306,7 @@ class GalleryViewerPage extends HookConsumerWidget {
           width: context.width,
           height: context.height,
           child: NativeVideoViewerPage(
-            // Use stable key for the viewer page itself if needed,
-            // relying on the inner NativeVideoPlayerView's key primarily.
-            key: ValueKey("native_viewer_${asset.id}"),
+            key: key,
             asset: asset,
             isLocked: isLocked.value, // Pass the locked state down
             image: Image(

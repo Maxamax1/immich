@@ -26,7 +26,6 @@ import 'package:immich_mobile/entities/album.entity.dart';
 import 'package:immich_mobile/entities/asset.entity.dart';
 import 'package:immich_mobile/providers/asset.provider.dart';
 import 'package:immich_mobile/providers/user.provider.dart';
-import 'package:immich_mobile/widgets/common/immich_loading_indicator.dart';
 import 'package:immich_mobile/widgets/common/immich_toast.dart';
 import 'package:immich_mobile/utils/immich_loading_overlay.dart';
 import 'package:immich_mobile/utils/selection_handlers.dart';
@@ -42,6 +41,7 @@ class MultiselectGrid extends HookConsumerWidget {
     this.onRemoveFromAlbum,
     this.topWidget,
     this.stackEnabled = false,
+    this.dragScrollLabelEnabled = true,
     this.archiveEnabled = false,
     this.deleteEnabled = true,
     this.favoriteEnabled = true,
@@ -58,6 +58,7 @@ class MultiselectGrid extends HookConsumerWidget {
   final Future<bool> Function(Iterable<Asset>)? onRemoveFromAlbum;
   final Widget? topWidget;
   final bool stackEnabled;
+  final bool dragScrollLabelEnabled;
   final bool archiveEnabled;
   final bool unarchive;
   final bool deleteEnabled;
@@ -68,7 +69,7 @@ class MultiselectGrid extends HookConsumerWidget {
   final ValueNotifier<RenderList?>? externalLockedListNotifier; // Add field
 
   Widget buildDefaultLoadingIndicator() =>
-      const Center(child: ImmichLoadingIndicator());
+      const Center(child: CircularProgressIndicator());
 
   Widget buildEmptyIndicator() =>
       emptyIndicator ?? Center(child: const Text("no_assets_to_show").tr());
@@ -498,6 +499,7 @@ class MultiselectGrid extends HookConsumerWidget {
                         topWidget: null, // No top widget in locked view
                         showStack: false, // No stack in locked view
                         isLocked: true, // Pass lock state down
+                        showDragScrollLabel: dragScrollLabelEnabled,
                       );
                     }
                   },
@@ -531,6 +533,7 @@ class MultiselectGrid extends HookConsumerWidget {
                       topWidget: topWidget,
                       showStack: stackEnabled,
                       isLocked: false, // Explicitly false when not locked
+                      showDragScrollLabel: dragScrollLabelEnabled,
                     );
                   },
                   error: (error, _) {
